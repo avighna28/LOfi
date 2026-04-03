@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import './styles/fonts.css';
+@import './styles/theme.css';
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #000000;
+  background-color: #ffffff;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  width: 100%;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Instrument Serif", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.max-w-screen-2xl {
+  max-width: 1536px;
+  margin: 0 auto;
+}
