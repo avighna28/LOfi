@@ -1,9 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { db, auth } from '../firebase';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  onSnapshot, 
+  doc, 
+  updateDoc, 
+  deleteDoc,
+  serverTimestamp,
+  orderBy,
+  where
+} from 'firebase/firestore';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 interface Task {
-  id: number;
+  id: string;
   text: string;
   completed: boolean;
+  createdAt: any;
+  userId: string;
 }
 
 interface TaskPanelProps {
@@ -14,29 +30,85 @@ interface TaskPanelProps {
 const TaskPanel: React.FC<TaskPanelProps> = ({ isOpen, onClose }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [user, setUser] = useState<User | null>(null);
 
-  const addTask = (e: React.FormEvent) => {
+  // Auth state listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Real-time synchronization with Firestore (Filtered by User)
+  useEffect(() => {
+    if (!user) {
+      setTasks([]);
+      return;
+    }
+
+    // Simplified query to verify data flow (Fix for display issue)
+    const q = query(
+      collection(db, 'tasks'), 
+      where('userId', '==', user.uid)
+    );
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const taskArr: Task[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        taskArr.push({ 
+          text: data.text,
+          completed: data.completed,
+          createdAt: data.createdAt,
+          userId: data.userId,
+          id: doc.id 
+        } as Task);
+      });
+      // Sorting locally for now to avoid Firestore Index requirement
+      setTasks(taskArr.sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds));
+    }, (err) => {
+      console.error("Firestore Listen Error:", err);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || !user) return;
     
-    const newTask: Task = {
-      id: Date.now(),
-      text: inputValue,
-      completed: false,
-    };
-    
-    setTasks([...tasks, newTask]);
-    setInputValue('');
+    try {
+      // Use local timestamp to avoid null sorting issues
+      await addDoc(collection(db, 'tasks'), {
+        text: inputValue,
+        completed: false,
+        createdAt: serverTimestamp(),
+        userId: user.uid
+      });
+      setInputValue('');
+    } catch (err) {
+      console.error("Error adding task: ", err);
+    }
   };
 
-  const toggleTask = (id: number) => {
-    setTasks(tasks.map(task => 
-      task.id === id ? { ...task, completed: !task.completed } : task
-    ));
+  const toggleTask = async (id: string, completed: boolean) => {
+    try {
+      const taskRef = doc(db, 'tasks', id);
+      await updateDoc(taskRef, {
+        completed: !completed
+      });
+    } catch (err) {
+      console.error("Error updating task: ", err);
+    }
   };
 
-  const deleteTask = (id: number) => {
-    setTasks(tasks.filter(task => task.id !== id));
+  const deleteTask = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'tasks', id));
+    } catch (err) {
+      console.error("Error deleting task: ", err);
+    }
   };
 
   return (
@@ -87,7 +159,19 @@ const TaskPanel: React.FC<TaskPanelProps> = ({ isOpen, onClose }) => {
 
         {/* List */}
         <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-          {tasks.length === 0 ? (
+          {!user ? (
+            <div className="text-center py-20 animate-fade-in">
+              <div className="w-16 h-16 bg-black/5 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+              </div>
+              <p className="text-sm text-black/60 font-medium leading-relaxed max-w-[200px] mx-auto">
+                Your sanctuary is waiting. <br />
+                <span className="text-black font-bold">Sign in with Google</span> to create your personalized task list.
+              </p>
+            </div>
+          ) : tasks.length === 0 ? (
             <div className="text-center py-20 opacity-30">
               <p className="text-sm">Your sanctuary is calm. Add some tasks to begin flow.</p>
             </div>
@@ -98,7 +182,7 @@ const TaskPanel: React.FC<TaskPanelProps> = ({ isOpen, onClose }) => {
                 className="group flex items-center gap-4 bg-white/60 p-5 rounded-2xl border border-black/5 hover:border-black/10 transition-all"
               >
                 <button 
-                  onClick={() => toggleTask(task.id)}
+                  onClick={() => toggleTask(task.id, task.completed)}
                   className={`w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center ${
                     task.completed ? 'bg-black border-black' : 'border-black/20 group-hover:border-black/40'
                   }`}

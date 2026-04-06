@@ -6,18 +6,22 @@ import TaskPanel from './components/TaskPanel'
 import AboutModal from './components/AboutModal'
 import LofiPlayer from './components/LofiPlayer'
 import ConnectModal from './components/ConnectModal'
+import AnalyticsPanel from './components/AnalyticsPanel'
+import Hero from './components/Hero'
 
 function App() {
   const [isTaskPanelOpen, setIsTaskPanelOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isLofiPlayerOpen, setIsLofiPlayerOpen] = useState(false);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
 
   const closeAll = () => {
     setIsTaskPanelOpen(false);
     setIsAboutModalOpen(false);
     setIsLofiPlayerOpen(false);
     setIsConnectModalOpen(false);
+    setIsAnalyticsOpen(false);
   };
 
   const toggleTaskPanel = () => {
@@ -40,6 +44,11 @@ function App() {
     setIsConnectModalOpen(!isConnectModalOpen);
   };
 
+  const toggleAnalyticsPanel = () => {
+    closeAll();
+    setIsAnalyticsOpen(!isAnalyticsOpen);
+  };
+
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-white text-black font-body">
       {/* Background layer */}
@@ -52,7 +61,9 @@ function App() {
           onToggleAbout={toggleAboutModal}
           onToggleLofi={toggleLofiPlayer}
           onToggleConnect={toggleConnectModal}
+          onToggleAnalytics={toggleAnalyticsPanel}
         />
+        <Hero />
         <StudyTimer />
       </div>
 
@@ -60,6 +71,12 @@ function App() {
       <TaskPanel 
         isOpen={isTaskPanelOpen} 
         onClose={closeAll} 
+      />
+
+      {/* Analytics Journey Panel */}
+      <AnalyticsPanel 
+        isOpen={isAnalyticsOpen}
+        onClose={closeAll}
       />
 
       {/* Side Panel for Lo-Fi Music */}
@@ -80,7 +97,7 @@ function App() {
       />
 
       {/* Overlays for closing panels */}
-      {(isTaskPanelOpen || isAboutModalOpen || isLofiPlayerOpen || isConnectModalOpen) && (
+      {(isTaskPanelOpen || isAboutModalOpen || isLofiPlayerOpen || isConnectModalOpen || isAnalyticsOpen) && (
         <div 
           className="fixed inset-0 bg-black/5 z-[90] backdrop-blur-[2px] transition-all"
           onClick={closeAll}

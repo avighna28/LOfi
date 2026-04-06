@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { db, auth } from '../firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 const PRESETS = [
   { label: '30m', minutes: 30 },
@@ -12,6 +15,30 @@ const StudyTimer: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(30 * 60);
   const [isActive, setIsActive] = useState(false);
   const [mode, setMode] = useState<'study' | 'break'>('study');
+  const [currentPreset, setCurrentPreset] = useState(30);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const logSession = async (minutes: number) => {
+    if (!user) return;
+    try {
+      await addDoc(collection(db, 'focus_sessions'), {
+        userId: user.uid,
+        durationMinutes: minutes,
+        timestamp: serverTimestamp(),
+        type: 'study'
+      });
+      console.log("Session logged successfully");
+    } catch (err) {
+      console.error("Error logging session:", err);
+    }
+  };
 
   useEffect(() => {
     let interval: number | undefined;
@@ -22,31 +49,33 @@ const StudyTimer: React.FC = () => {
       }, 1000);
     } else if (timeLeft === 0) {
       setIsActive(false);
-      // Optional: switch to break mode
+      
       if (mode === 'study') {
-        alert('Time for a short break!');
+        logSession(currentPreset);
+        alert('Focus session complete. Time for a short break!');
         setMode('break');
-        setTimeLeft(5 * 60); // 5 min break
+        setTimeLeft(5 * 60); 
       } else {
-        alert('Back to work!');
+        alert('Break over. Back to your sanctuary.');
         setMode('study');
         setTimeLeft(30 * 60);
       }
     }
 
     return () => clearInterval(interval);
-  }, [isActive, timeLeft, mode]);
+  }, [isActive, timeLeft, mode, user, currentPreset]);
 
   const toggleTimer = () => setIsActive(!isActive);
 
   const resetTimer = () => {
     setIsActive(false);
-    setTimeLeft(30 * 60);
+    setTimeLeft(currentPreset * 60);
     setMode('study');
   };
 
   const setPreset = (minutes: number) => {
     setIsActive(false);
+    setCurrentPreset(minutes);
     setTimeLeft(minutes * 60);
     setMode('study');
   };

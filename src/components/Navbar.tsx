@@ -1,14 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { auth, googleProvider } from '../firebase';
+import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth';
 
 interface NavbarProps {
   onToggleTasks: () => void;
   onToggleAbout: () => void;
   onToggleLofi: () => void;
   onToggleConnect: () => void;
+  onToggleAnalytics: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onToggleTasks, onToggleAbout, onToggleLofi, onToggleConnect }) => {
+const Navbar: React.FC<NavbarProps> = ({ 
+  onToggleTasks, 
+  onToggleAbout, 
+  onToggleLofi, 
+  onToggleConnect,
+  onToggleAnalytics 
+}) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      console.error("Login Error:", err);
+    }
+  };
+
+  const handleLogout = () => signOut(auth);
 
   const NavLinks = () => (
     <>
@@ -18,6 +45,12 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleTasks, onToggleAbout, onToggleL
         className="text-sm font-medium text-[#6F6F6F] transition-colors hover:text-black text-left"
       >
         Tasks
+      </button>
+      <button 
+        onClick={() => { onToggleAnalytics(); setIsMenuOpen(false); }}
+        className="text-sm font-medium text-[#6F6F6F] transition-colors hover:text-black text-left"
+      >
+        Journey
       </button>
       <button 
         onClick={() => { onToggleAbout(); setIsMenuOpen(false); }}
@@ -37,6 +70,21 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleTasks, onToggleAbout, onToggleL
       >
         Reach Us
       </button>
+      
+      {/* Mobile Login/Logout */}
+      <div className="md:hidden pt-4 border-t border-black/5 mt-2">
+        {user ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img src={user.photoURL || ''} alt="Profile" className="w-8 h-8 rounded-full border border-black/10" />
+              <span className="text-sm font-medium text-black">{user.displayName}</span>
+            </div>
+            <button onClick={handleLogout} className="text-xs font-bold text-red-500 uppercase tracking-widest">Logout</button>
+          </div>
+        ) : (
+          <button onClick={handleLogin} className="w-full py-3 bg-black text-white rounded-xl text-sm font-bold">Sign In with Google</button>
+        )}
+      </div>
     </>
   );
 
@@ -53,6 +101,28 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleTasks, onToggleAbout, onToggleL
         {/* Desktop Navbar */}
         <div className="hidden md:flex items-center gap-8">
           <NavLinks />
+          
+          {/* Desktop Auth */}
+          <div className="pl-6 border-l border-black/5">
+            {user ? (
+              <div className="flex items-center gap-4 group relative">
+                <img src={user.photoURL || ''} alt="Profile" className="w-9 h-9 rounded-full border-2 border-transparent hover:border-black/10 transition-all cursor-pointer" />
+                <button 
+                  onClick={handleLogout}
+                  className="text-[10px] font-bold uppercase tracking-widest text-[#6F6F6F] hover:text-black transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={handleLogin}
+                className="text-sm font-bold text-black border-2 border-black/5 px-6 py-2 rounded-full hover:bg-black hover:text-white transition-all scale-100 active:scale-95"
+              >
+                Sign In
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Mobile Menu Trigger */}
